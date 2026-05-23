@@ -26,3 +26,4 @@ TestResults.xml
 .DS_Store__pycache__/
 __pycache__/
 .DS_Store
+cost_basis.json
