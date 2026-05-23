@@ -11,11 +11,25 @@ dashboard and Telegram chat.
 ## What it does
 
 - Scores every stock you own on three signals — fundamentals, momentum, sentiment
-- Finds weak holdings and suggests better replacements with tax impact
-- Delivers a 7am morning brief to your Telegram every day
+- Finds weak holdings and suggests better replacements
+- Visual dashboard showing your full portfolio health at a glance
 - Two-way Telegram chat — ask anything about your portfolio
-- Benchmarks your returns against S&P 500 (VOO) to measure app performance
+- Daily 7am morning brief to your Telegram
 - Stop-loss alerts when any holding drops 15%
+- Benchmarks your returns against S&P 500 (VOO)
+
+---
+
+## Live Dashboard
+
+![Dashboard](docs/dashboard.png)
+
+- **Total portfolio value** — live from your Robinhood account
+- **Portfolio score** — weighted average across all holdings
+- **Rotate candidates** — stocks the AI flags for replacement
+- **Earnings this week** — upcoming earnings warnings
+- **Bar chart** — all stocks color coded HOLD / WATCH / ROTATE
+- **Rotation suggestions** — sell X buy Y with share count
 
 ---
 
@@ -34,11 +48,14 @@ Every stock gets three scores combined into one final score from 0 to 10.
 - `5.0–6.9` → **WATCH** — monitor closely
 - `below 5.0` → **ROTATE** — consider selling
 
-**Example output:**
+**Real output on actual portfolio (May 2026):**
 ```
 GOOGL  9.29/10  HOLD    F:9.5  M:10.0  S:7.96
 NVDA   9.13/10  HOLD    F:9.0  M:10.0  S:8.13
+AMZN   8.50/10  HOLD    F:8.5  M:9.0   S:8.50
 AAPL   7.68/10  HOLD    F:8.0  M:7.5   S:7.41
+SHOP   4.57/10  ROTATE  F:4.5  M:4.0   S:5.25
+DOW    4.71/10  ROTATE  F:4.0  M:5.5   S:4.71
 FISV   4.96/10  ROTATE  F:6.0  M:3.0   S:6.05
 ```
 
@@ -86,13 +103,11 @@ robinhood-ai-advisor/
 │   └── engine.py                    ← combines F+M+S into final score
 │
 ├── portfolio/
-│   ├── reader.py                    ← parses your holdings
 │   ├── rotation_engine.py           ← finds sell X → buy Y candidates
-│   ├── tax_calculator.py            ← short vs long term tax impact
-│   └── benchmarking.py              ← tracks alpha vs S&P 500
+│   └── benchmarking.py              ← tracks alpha vs S&P 500 (Phase 4)
 │
 ├── agents/
-│   ├── supervisor.py                ← LangGraph orchestrator
+│   ├── supervisor.py                ← LangGraph orchestrator (Phase 4)
 │   ├── portfolio_agent.py
 │   ├── screener_agent.py
 │   ├── sentiment_agent.py
@@ -129,9 +144,9 @@ robinhood-ai-advisor/
 | Phase | What | Status |
 |---|---|---|
 | Phase 1 | yfinance + fundamental + momentum scoring | ✅ Done |
-| Phase 2 | Finnhub sentiment + Robinhood connector + rotation engine | 🔄 In progress |
-| Phase 3 | Streamlit dashboard + Telegram chat | ⏳ Pending |
-| Phase 4 | AWS Lambda + EventBridge + DynamoDB | ⏳ Pending |
+| Phase 2 | Finnhub sentiment + Robinhood connector + rotation engine | ✅ Done |
+| Phase 3 | Streamlit dashboard + Telegram bot | 🔄 In progress |
+| Phase 4 | AWS Lambda + EventBridge + DynamoDB + LangGraph agents | ⏳ Pending |
 
 ---
 
@@ -145,11 +160,15 @@ conda create -n robinhood-ai python=3.12
 conda activate robinhood-ai
 ```
 
-### 2. Install Phase 1 + 2 dependencies
+### 2. Install dependencies (by phase)
 ```bash
+# Phase 1 + 2
 pip install yfinance==1.4.0 pandas==3.0.3 numpy==2.4.6 \
             python-dotenv==1.2.2 requests==2.34.2 \
             robin-stocks==3.4.0 finnhub-python==2.4.28
+
+# Phase 3
+pip install streamlit==1.57.0 plotly==6.7.0
 ```
 
 ### 3. Set up your API keys
@@ -163,11 +182,23 @@ Free API keys needed:
 - **Gemini** — https://aistudio.google.com (free, 1M tokens/day)
 - **Telegram** — create bot via @BotFather on Telegram (free)
 
-### 4. Run the scoring engine
+### 4. Run the Streamlit dashboard
+```bash
+streamlit run dashboard/app.py
+```
+
+Open http://localhost:8501 in your browser.
+
+### 5. Run the scoring engine directly
 ```bash
 python -c "
+from data.robinhood_client import robinhood_client
 from scoring.engine import score_portfolio
-results = score_portfolio(['NVDA', 'GOOGL', 'AAPL', 'MSFT'])
+
+holdings = robinhood_client.get_holdings()
+tickers  = [h['ticker'] for h in holdings]
+results  = score_portfolio(tickers)
+
 for r in results:
     print(f'{r[\"ticker\"]}  {r[\"final_score\"]}/10  {r[\"category\"]}')
 "
@@ -177,7 +208,7 @@ for r in results:
 
 ## Telegram Commands
 
-After deployment, control everything from Telegram:
+After deployment (Phase 4), control everything from Telegram:
 
 ```
 /status    — show what is running
@@ -197,22 +228,20 @@ Or just ask anything:
 
 ---
 
-## Security
+## Important Notes
 
-- All API keys stored in AWS SSM Parameter Store (AES-256 encrypted)
-- `.env` is in `.gitignore` — never committed to GitHub
-- Lambda IAM role uses minimum permissions only
-- Robinhood credentials used once to generate token, then stored encrypted
+**Cost basis warning:** robin_stocks API returns adjusted cost basis
+for stocks with splits or multiple purchase lots. Always verify
+your exact average cost in Robinhood app before executing any trade.
 
----
+**Tax disclaimer:** Tax impact estimates are approximate.
+Check Robinhood → Tax Center for exact figures before trading.
 
-## Disclaimer
-
-This project is for educational purposes only. Not financial advice.
+**Not financial advice:** This project is for educational purposes only.
 Always do your own research before making investment decisions.
 
 ---
 
 ## Author
 
-Sanketh Kumar Divveda · [GitHub](https://github.com/mrsanketh)
+[mrsanketh](https://github.com/mrsanketh)
