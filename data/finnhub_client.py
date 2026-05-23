@@ -5,19 +5,31 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Finnhub free tier: 60 calls per minute
+# We make 2 calls per stock (analyst + earnings)
+# 35 stocks = 70 calls — just over the limit
+# Adding 1.5 second delay between stocks keeps us under 60/min
+RATE_LIMIT_DELAY = 1.5
+
 
 class FinnhubClient:
     """
     Fetches analyst recommendations and earnings calendar from Finnhub.
     Free tier: 60 API calls per minute.
-
-    Note: News sentiment endpoint requires paid plan — not used here.
-    Analyst recommendations are free and more reliable anyway.
+    Rate limit delay added to prevent 429 errors on large portfolios.
     """
 
     def __init__(self):
-        self.client = finnhub.Client(api_key=config.FINNHUB_API_KEY)
-        self._cache = {}
+        self.client     = finnhub.Client(api_key=config.FINNHUB_API_KEY)
+        self._cache     = {}
+        self._last_call = 0.0
+
+    def _wait_for_rate_limit(self):
+        """Wait if needed to stay under 60 calls per minute."""
+        elapsed = time.time() - self._last_call
+        if elapsed < RATE_LIMIT_DELAY:
+            time.sleep(RATE_LIMIT_DELAY - elapsed)
+        self._last_call = time.time()
 
     def _get_cached(self, key: str, fetch_fn, ttl_minutes: int = 60):
         """Return cached result if fresh, otherwise fetch and cache."""
@@ -34,11 +46,10 @@ class FinnhubClient:
         """
         Get analyst buy/sell/hold breakdown.
         Returns a score from 0 to 10.
-        10 = all analysts say strong buy
-        0  = all analysts say strong sell
         """
         def fetch():
             try:
+                self._wait_for_rate_limit()
                 recs = self.client.recommendation_trends(ticker)
                 return recs[0] if recs else {}
             except Exception as e:
@@ -60,7 +71,6 @@ class FinnhubClient:
         if total == 0:
             return {"score": 5.0, "strong_buy": 0, "buy": 0, "hold": 0, "sell": 0}
 
-        # Weighted score: strong_buy=10, buy=7.5, hold=5, sell=2.5, strong_sell=0
         weighted = (
             (strong_buy  * 10.0) +
             (buy         *  7.5) +
@@ -78,14 +88,12 @@ class FinnhubClient:
         }
 
     def get_earnings_calendar(self, ticker: str) -> dict:
-        """
-        Check if earnings are coming up in the next 14 days.
-        Used to warn you before earnings — stock can move sharply.
-        """
+        """Check if earnings are coming up in the next 14 days."""
         from datetime import datetime, timedelta
 
         def fetch():
             try:
+                self._wait_for_rate_limit()
                 today     = datetime.now().strftime("%Y-%m-%d")
                 two_weeks = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
                 return self.client.earnings_calendar(
