@@ -1,0 +1,99 @@
+<svg width="860" height="556" viewBox="0 0 860 556" xmlns="http://www.w3.org/2000/svg"
+     style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#ffffff">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <text x="430" y="18" text-anchor="middle" font-size="15" font-weight="700" fill="#0f172a">Robinhood AI Advisor — System Architecture</text>
+  <text x="430" y="34" text-anchor="middle" font-size="10" fill="#64748b">Python · LangGraph · Gemini Flash · AWS · Total Cost: $0/month</text>
+  <rect x="30"  y="48" width="220" height="56" rx="7" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="140" y="67"  text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Streamlit</text>
+  <text x="140" y="82"  text-anchor="middle" font-size="10" fill="#2563eb">Python dashboard (browser)</text>
+  <text x="140" y="96"  text-anchor="middle" font-size="9"  fill="#16a34a">Free forever · local run · $0</text>
+  <rect x="320" y="48" width="220" height="56" rx="7" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="430" y="67"  text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Telegram Bot</text>
+  <text x="430" y="82"  text-anchor="middle" font-size="10" fill="#2563eb">Two-way chat on your phone</text>
+  <text x="430" y="96"  text-anchor="middle" font-size="9"  fill="#16a34a">Free forever · unlimited · $0</text>
+  <rect x="610" y="48" width="220" height="56" rx="7" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="720" y="67"  text-anchor="middle" font-size="12" font-weight="700" fill="#c2410c">EventBridge</text>
+  <text x="720" y="82"  text-anchor="middle" font-size="10" fill="#ea580c">7am brief + 4pm scan</text>
+  <text x="720" y="96"  text-anchor="middle" font-size="9"  fill="#16a34a">14M invocations/month free · $0</text>
+  <path d="M140,104 L140,114 L200,114 L200,124" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M430,104 L430,124" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M720,104 L720,114 L660,114 L660,124" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <rect x="30" y="124" width="800" height="54" rx="7" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="430" y="143" text-anchor="middle" font-size="12" font-weight="700" fill="#c2410c">AWS Lambda</text>
+  <text x="430" y="158" text-anchor="middle" font-size="10" fill="#ea580c">Serverless compute — wakes on trigger · runs code · sleeps when idle</text>
+  <text x="430" y="171" text-anchor="middle" font-size="9"  fill="#16a34a">1M requests/month free · you use ~300/month · $0</text>
+  <path d="M430,178 L430,192" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <rect x="30" y="192" width="800" height="54" rx="7" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="430" y="211" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">LangGraph Supervisor Agent</text>
+  <text x="430" y="226" text-anchor="middle" font-size="10" fill="#7c3aed">Reads your message → decides which agent to call → manages state → powered by Gemini Flash</text>
+  <text x="430" y="239" text-anchor="middle" font-size="9"  fill="#16a34a">Free · open source Python library · $0</text>
+  <path d="M117,246 L117,266" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M325,246 L325,266" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M533,246 L533,266" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M741,246 L741,266" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <rect x="30"  y="266" width="175" height="68" rx="7" fill="#e0f2fe" stroke="#0891b2" stroke-width="1.5"/>
+  <text x="117" y="285" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Portfolio</text>
+  <text x="117" y="299" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Optimizer</text>
+  <text x="117" y="313" text-anchor="middle" font-size="10" fill="#0891b2">Score holdings 0–10</text>
+  <text x="117" y="326" text-anchor="middle" font-size="9"  fill="#16a34a">Free · open source · $0</text>
+  <rect x="238" y="266" width="175" height="68" rx="7" fill="#e0f2fe" stroke="#0891b2" stroke-width="1.5"/>
+  <text x="325" y="285" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Stock</text>
+  <text x="325" y="299" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Screener</text>
+  <text x="325" y="313" text-anchor="middle" font-size="10" fill="#0891b2">Scan 550 stocks daily</text>
+  <text x="325" y="326" text-anchor="middle" font-size="9"  fill="#16a34a">Free · open source · $0</text>
+  <rect x="446" y="266" width="175" height="68" rx="7" fill="#e0f2fe" stroke="#0891b2" stroke-width="1.5"/>
+  <text x="533" y="285" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Sentiment</text>
+  <text x="533" y="299" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Agent</text>
+  <text x="533" y="313" text-anchor="middle" font-size="10" fill="#0891b2">News + analyst alerts</text>
+  <text x="533" y="326" text-anchor="middle" font-size="9"  fill="#16a34a">Free · open source · $0</text>
+  <rect x="654" y="266" width="175" height="68" rx="7" fill="#e0f2fe" stroke="#0891b2" stroke-width="1.5"/>
+  <text x="741" y="285" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Rotation</text>
+  <text x="741" y="299" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">Agent</text>
+  <text x="741" y="313" text-anchor="middle" font-size="10" fill="#0891b2">Sell X → Buy Y + tax</text>
+  <text x="741" y="326" text-anchor="middle" font-size="9"  fill="#16a34a">Free · open source · $0</text>
+  <path d="M117,334 L117,348" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M325,334 L325,348" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M533,334 L533,348" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M741,334 L741,348" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <rect x="30"  y="348" width="175" height="54" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="117" y="367" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">robin_stocks</text>
+  <text x="117" y="381" text-anchor="middle" font-size="10" fill="#16a34a">Your Robinhood data</text>
+  <text x="117" y="394" text-anchor="middle" font-size="9"  fill="#16a34a">Free · open source · $0</text>
+  <rect x="238" y="348" width="175" height="54" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="325" y="367" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">yfinance</text>
+  <text x="325" y="381" text-anchor="middle" font-size="10" fill="#16a34a">Free stock data · no key</text>
+  <text x="325" y="394" text-anchor="middle" font-size="9"  fill="#16a34a">Free · Yahoo Finance · $0</text>
+  <rect x="446" y="348" width="175" height="54" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="533" y="367" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">Finnhub API</text>
+  <text x="533" y="381" text-anchor="middle" font-size="10" fill="#16a34a">News + analysts</text>
+  <text x="533" y="394" text-anchor="middle" font-size="9"  fill="#16a34a">Free · 60 calls/min · $0</text>
+  <rect x="654" y="348" width="175" height="54" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="741" y="367" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">DynamoDB</text>
+  <text x="741" y="381" text-anchor="middle" font-size="10" fill="#16a34a">Benchmarking + history</text>
+  <text x="741" y="394" text-anchor="middle" font-size="9"  fill="#16a34a">Free · 25GB forever · $0</text>
+  <line x1="30" y1="416" x2="830" y2="416" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="430" y="428" text-anchor="middle" font-size="10" fill="#94a3b8">Shared by all agents</text>
+  <rect x="30"  y="436" width="175" height="54" rx="7" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="117" y="455" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">Gemini 2.0 Flash</text>
+  <text x="117" y="469" text-anchor="middle" font-size="10" fill="#64748b">AI brain for all agents</text>
+  <text x="117" y="482" text-anchor="middle" font-size="9"  fill="#16a34a">Free · 1M tokens/day · $0</text>
+  <rect x="238" y="436" width="175" height="54" rx="7" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="325" y="455" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">SSM Params</text>
+  <text x="325" y="469" text-anchor="middle" font-size="10" fill="#64748b">AES-256 encrypted secrets</text>
+  <text x="325" y="482" text-anchor="middle" font-size="9"  fill="#16a34a">Free · standard params · $0</text>
+  <rect x="446" y="436" width="175" height="54" rx="7" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="533" y="455" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">Langfuse</text>
+  <text x="533" y="469" text-anchor="middle" font-size="10" fill="#64748b">Agent tracing</text>
+  <text x="533" y="482" text-anchor="middle" font-size="9"  fill="#16a34a">Free · 50K obs/month · $0</text>
+  <rect x="654" y="436" width="175" height="54" rx="7" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="741" y="455" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">GitHub Actions</text>
+  <text x="741" y="469" text-anchor="middle" font-size="10" fill="#64748b">CI/CD · auto-deploy</text>
+  <text x="741" y="482" text-anchor="middle" font-size="9"  fill="#16a34a">Free · public repos · $0</text>
+  <rect x="30" y="506" width="800" height="36" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="430" y="520" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">💰  Total Monthly Cost: $0</text>
+  <text x="430" y="534" text-anchor="middle" font-size="10" fill="#16a34a">All 14 services on free tier · No credit card charges · No hidden costs</text>
+</svg>
