@@ -22,10 +22,16 @@ class RobinhoodClient:
         if self._logged_in:
             return
         try:
+            import os
+            # Lambda filesystem is read-only except /tmp
+            # Set robin_stocks data directory to /tmp
+            if os.path.exists("/var/task"):   # we are running on Lambda
+                os.environ["HOME"] = "/tmp"
+
             rh.login(
                 username=config.ROBINHOOD_USERNAME,
                 password=config.ROBINHOOD_PASSWORD,
-                store_session=True   # saves token locally after first login
+                store_session=True
             )
             self._logged_in = True
             logger.info("Logged in to Robinhood")
