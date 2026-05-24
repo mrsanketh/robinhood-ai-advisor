@@ -9,20 +9,17 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    ConversationHandler,
     ContextTypes,
     filters,
 )
-from scoring.engine            import score_stock, score_portfolio
-from data.robinhood_client     import robinhood_client
-from portfolio.rotation_engine import run_rotation_analysis
+from scoring.engine             import score_stock, score_portfolio
+from data.robinhood_client      import robinhood_client
+from data.yfinance_client       import yf_client
+from portfolio.rotation_engine  import run_rotation_analysis, format_suggestion
 from portfolio.cost_basis_store import get as get_cost, save as save_cost, calculate_tax
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Conversation states
-WAITING_FOR_COST = 1
 
 
 def is_me(update: Update) -> bool:
@@ -149,29 +146,24 @@ async def cmd_tax(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send(update, "Usage: /tax SHOP")
         return
 
-    ticker = context.args[0].upper()
-
-    # Check if cost basis is saved
+    ticker   = context.args[0].upper()
     avg_cost = get_cost(ticker)
+
     if avg_cost is None:
-        # Ask user to enter it
         context.user_data["tax_ticker"] = ticker
         await send(update,
             f"I don't have your avg cost for {ticker} yet.\n\n"
             f"Open Robinhood → {ticker} → Average Cost\n"
             f"Reply with the number (e.g. 55.22)"
         )
-        return ConversationHandler.END  # handled by message handler
+        return
 
-    # Calculate tax using saved cost
     holdings = robinhood_client.get_holdings()
     holding  = next((h for h in holdings if h["ticker"] == ticker), None)
-
     if not holding:
         await send(update, f"{ticker} not found in your portfolio.")
         return
 
-    from data.yfinance_client import yf_client
     current_price = yf_client.get_current_price(ticker)
     tax = calculate_tax(ticker, holding["shares"], current_price)
 
@@ -179,95 +171,68 @@ async def cmd_tax(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send(update, tax["message"])
         return
 
+    gain_label = "GAIN" if tax["total_gain"] >= 0 else "LOSS"
+
     msg  = f"💰 Tax impact: {ticker}\n\n"
     msg += f"Your avg cost:    ${tax['avg_cost']}\n"
     msg += f"Current price:    ${tax['current_price']}\n"
     msg += f"Shares:           {tax['shares']}\n"
     msg += f"Gain per share:   ${tax['gain_per_share']}\n"
-    msg += f"Total gain:       ${tax['total_gain']:,.2f}\n\n"
-    msg += f"Short term (22%): ${tax['short_term_tax']:,.2f}\n"
-    msg += f"Long term  (15%): ${tax['long_term_tax']:,.2f}\n\n"
-    msg += f"Proceeds:         ${tax['proceeds']:,.2f}\n"
-    msg += f"Net (short term): ${tax['net_short_term']:,.2f}\n"
-    msg += f"Net (long term):  ${tax['net_long_term']:,.2f}\n\n"
-    msg += f"⚠️ Verify in Robinhood Tax Center before trading"
+    msg += f"Total {gain_label}:      ${abs(tax['total_gain']):,.2f}\n\n"
 
+    if tax["total_gain"] >= 0:
+        msg += f"Short term (22%): ${tax['short_term_tax']:,.2f}\n"
+        msg += f"Long term  (15%): ${tax['long_term_tax']:,.2f}\n\n"
+        msg += f"Proceeds:         ${tax['proceeds']:,.2f}\n"
+        msg += f"Net (short term): ${tax['net_short_term']:,.2f}\n"
+        msg += f"Net (long term):  ${tax['net_long_term']:,.2f}\n"
+    else:
+        msg += f"Tax loss harvest: saves ${abs(tax['short_term_tax']):,.2f}\n"
+        msg += f"(offsets other gains this year)\n\n"
+        msg += f"Proceeds: ${tax['proceeds']:,.2f}\n"
+
+    msg += f"\n⚠️ Verify in Robinhood Tax Center before trading"
     await send(update, msg)
 
 
 # ── /rotate ───────────────────────────────────────────────────────
 async def cmd_rotate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_me(update): return
-    await send(update, "Analysing rotation opportunities... ~3 minutes")
+    await send(update, "Analysing portfolio... ~3 minutes")
 
     try:
         suggestions = run_rotation_analysis()
 
         if not suggestions:
-            await send(update, "✅ No rotations needed. Portfolio looks healthy.")
+            await send(update, "✅ All positions within limits. Portfolio looks healthy.")
             return
 
+        # Send position sizing explanation first
+        await send(update,
+            "📐 Using position sizing limits:\n"
+            "Score 8-10 → max 12% of portfolio\n"
+            "Score 7-8  → max 8%\n"
+            "Score 6-7  → max 5%\n"
+            "Score 5-6  → max 3%\n"
+            "Score 4-5  → max 1%\n"
+            "Score 0-4  → exit completely\n\n"
+            "Only showing trades freeing $1,000+"
+        )
+
         for s in suggestions:
-            sell_ticker = s["sell"]["ticker"]
-            tickers     = [t.strip() for t in sell_ticker.split("+")]
-
-            msg = f"🔄 ROTATION SUGGESTION\n\n"
-
-            if s.get("combined"):
-                msg += f"SELL (combined): {sell_ticker}\n"
-                msg += f"Value: ${s['sell']['equity']:,.2f}\n"
-            else:
-                msg += f"SELL: {sell_ticker}\n"
-                msg += f"Score:  {s['sell']['score']}/10\n"
-                msg += f"Shares: {s['sell']['shares']}\n"
-                msg += f"Value:  ${s['sell']['equity']:,.2f}\n"
-                for note in s["sell"].get("notes", [])[:3]:
-                    msg += f"  → {note}\n"
-
-            # Show tax if available
-            for t in tickers:
-                t = t.strip()
-                avg_cost = get_cost(t)
-                if avg_cost:
-                    from data.yfinance_client import yf_client
-                    price = yf_client.get_current_price(t)
-                    holdings = robinhood_client.get_holdings()
-                    h = next((x for x in holdings if x["ticker"] == t), None)
-                    if h:
-                        tax = calculate_tax(t, h["shares"], price)
-                        if tax["available"]:
-                            msg += f"\nTax impact {t}:\n"
-                            msg += f"  Gain: ${tax['total_gain']:,.2f}\n"
-                            msg += f"  Short term: ${tax['short_term_tax']:,.2f}\n"
-                            msg += f"  Long term:  ${tax['long_term_tax']:,.2f}\n"
-                else:
-                    msg += f"\n💡 Run /tax {t} for tax impact"
-
-            if s.get("buy"):
-                buy = s["buy"]
-                msg += f"\nBUY: {buy['ticker']} — {buy['company_name']}\n"
-                msg += f"Score:  {buy['score']}/10\n"
-                msg += f"Price:  ${buy['price']}\n"
-                msg += f"Shares: {buy['shares']}\n"
-                msg += f"Cost:   ${buy['cost']:,.2f}\n"
-                for note in buy.get("notes", [])[:2]:
-                    msg += f"  → {note}\n"
-            else:
-                msg += f"\n{s.get('message', 'Hold cash')}\n"
-
-            await send(update, msg)
+            await send(update, format_suggestion(s))
 
     except Exception as e:
         await send(update, f"Rotation analysis failed: {e}")
 
 
-# ── Handle cost basis replies ─────────────────────────────────────
+# ── Handle plain text messages ────────────────────────────────────
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_me(update): return
 
     text = update.message.text.strip()
 
-    # Check if we are waiting for a cost basis entry
+    # Cost basis reply
     if "tax_ticker" in context.user_data:
         ticker = context.user_data.pop("tax_ticker")
         try:
@@ -281,7 +246,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send(update, "Please enter a number e.g. 55.22")
         return
 
-    # Simple keyword routing
     lower = text.lower()
     if any(w in lower for w in ["worth", "value", "total"]):
         await cmd_status(update, context)
@@ -304,7 +268,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "I can help with:\n"
             "/score NVDA — score a stock\n"
             "/portfolio  — full portfolio\n"
-            "/rotate     — what to sell\n"
+            "/rotate     — position sizing analysis\n"
             "/tax SHOP   — tax impact\n"
             "/status     — quick summary"
         )

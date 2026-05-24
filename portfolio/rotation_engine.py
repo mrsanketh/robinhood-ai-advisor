@@ -212,8 +212,52 @@ def _find_best_replacement(exclude_tickers: list, min_score: float) -> dict:
     return best
 
 
+def get_recommendation(sell: dict, buy: dict) -> tuple:
+    """
+    Returns (recommendation, reasons, wait_reason) based on three rules:
+
+    YES if:
+      1. Buy score is 1.5+ points higher than sell score
+      2. No earnings warning on either stock
+      (tax is checked separately via /tax command)
+
+    WAIT if:
+      1. Score difference < 1.5 — not worth the friction
+      2. Earnings within 7 days for sell stock — wait for results first
+
+    Returns: ("YES"/"WAIT"/"NO_BUY", reasons_list, wait_reason_str)
+    """
+    if not buy:
+        return "NO_BUY", [], "No replacement found — hold cash after selling"
+
+    score_diff     = round(buy["score"] - sell["score"], 2)
+    earnings_warn  = sell.get("earnings_warning", "")
+    has_earnings   = bool(earnings_warn)
+
+    reasons  = []
+    wait_reasons = []
+
+    # Check score difference
+    if score_diff >= 1.5:
+        reasons.append(f"{buy['ticker']} scores {score_diff} points higher than {sell['ticker']}")
+    else:
+        wait_reasons.append(f"Score difference only {score_diff} pts — marginal improvement")
+
+    # Check earnings risk
+    if has_earnings:
+        wait_reasons.append(f"{sell['ticker']} has {earnings_warn} — wait for results first")
+    else:
+        reasons.append(f"No earnings risk for {sell['ticker']}")
+
+    # Final decision
+    if wait_reasons:
+        return "WAIT", reasons, " | ".join(wait_reasons)
+    else:
+        return "YES", reasons, ""
+
+
 def format_suggestion(suggestion: dict) -> str:
-    """Format suggestion as readable text."""
+    """Format suggestion as readable text with clear recommendation."""
     sell  = suggestion["sell"]
     buy   = suggestion.get("buy")
     lines = []
@@ -248,8 +292,32 @@ def format_suggestion(suggestion: dict) -> str:
         lines.append(f"  Total cost: ${buy['cost']:,.2f}")
         for note in buy.get("notes", [])[:3]:
             lines.append(f"  → {note}")
+
+        # Get recommendation
+        rec, reasons, wait_reason = get_recommendation(sell, buy)
+        sell_ticker_clean = sell['ticker'].split('+')[0].strip()
+
         lines.append(f"")
-        lines.append(f"  💡 Run /tax {sell['ticker'].split('+')[0].strip()} for tax impact")
+        if rec == "YES":
+            lines.append(f"✅ RECOMMENDATION: DO THE ROTATION")
+            lines.append(f"")
+            lines.append(f"Why:")
+            for r in reasons:
+                lines.append(f"  → {r}")
+            lines.append(f"")
+            lines.append(f"📋 Next steps:")
+            lines.append(f"  1️⃣  /tax {sell_ticker_clean} — confirm tax impact")
+            lines.append(f"  2️⃣  Sell {sell['shares_to_sell']} shares of {sell_ticker_clean} at 9:30am")
+            lines.append(f"  3️⃣  Buy {buy['shares']} shares of {buy['ticker']} with proceeds")
+        else:
+            lines.append(f"⏳ RECOMMENDATION: WAIT")
+            lines.append(f"")
+            lines.append(f"Why:")
+            lines.append(f"  → {wait_reason}")
+            lines.append(f"")
+            lines.append(f"📋 What to do:")
+            lines.append(f"  → Monitor {sell_ticker_clean} — run /score {sell_ticker_clean} next week")
+            lines.append(f"  → Re-run /rotate after any earnings pass")
     else:
         if suggestion.get("message"):
             lines.append(f"  {suggestion['message']}")
