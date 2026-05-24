@@ -59,7 +59,8 @@ def get_portfolio_snapshot(date: str) -> list:
     table = dynamodb.Table(PORTFOLIO_TABLE)
     try:
         response = table.query(
-            KeyConditionExpression="date = :d",
+            KeyConditionExpression="#d = :d",
+            ExpressionAttributeNames={"#d": "date"},
             ExpressionAttributeValues={":d": date}
         )
         return response.get("Items", [])
