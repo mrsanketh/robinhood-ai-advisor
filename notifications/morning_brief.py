@@ -37,7 +37,6 @@ def build_brief() -> str:
     avg_score     = sum(r["final_score"] for r in results) / len(results)
     top3          = sorted(results, key=lambda x: x["final_score"], reverse=True)[:3]
     earnings_soon = [r for r in results if r.get("earnings_warning")]
-
     sized_candidates = get_rotation_candidates(holdings, results, total)
 
     lines = []
@@ -77,7 +76,7 @@ def build_brief() -> str:
     for r in top3:
         lines.append(f"  → {r['ticker']} {r['final_score']}/10")
 
-    # Weekly cost check — Mondays only
+    # Weekly cost summary — Mondays only
     try:
         from monitoring.cost_monitor import build_cost_section, is_monday
         if is_monday():
@@ -94,9 +93,33 @@ def build_brief() -> str:
     return "\n".join(lines)
 
 
+def check_and_send_cost_alerts():
+    """
+    Check cost thresholds daily.
+    Send immediate alert if any threshold is exceeded.
+    """
+    try:
+        from monitoring.cost_monitor import check_thresholds
+        alerts = check_thresholds()
+
+        for alert in alerts:
+            msg  = f"{alert['message']}\n\n"
+            msg += alert['next_steps']
+            send_telegram(msg)
+            logger.info(f"Sent cost alert: {alert['type']}")
+
+    except Exception as e:
+        logger.warning(f"Cost threshold check failed: {e}")
+
+
 def send_morning_brief():
+    """Build and send the morning brief to Telegram."""
     print("Building morning brief...")
     try:
+        # Check cost thresholds first — send alerts if needed
+        check_and_send_cost_alerts()
+
+        # Build and send the morning brief
         brief = build_brief()
         send_telegram(brief)
         print("Morning brief sent.")
