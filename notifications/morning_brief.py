@@ -5,8 +5,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import requests
 from datetime import datetime
 import config
-from scoring.engine        import score_portfolio
-from data.robinhood_client import robinhood_client
+from scoring.engine            import score_portfolio
+from data.robinhood_client     import robinhood_client
+from portfolio.rotation_engine import get_rotation_candidates
 
 
 def send_telegram(text: str):
@@ -24,10 +25,7 @@ def send_telegram(text: str):
 
 
 def build_brief() -> str:
-    """
-    Build the 7am morning brief.
-    Reads your portfolio, scores it, and returns a formatted message.
-    """
+    """Build the 7am morning brief."""
     today = datetime.now().strftime("%B %d %Y")
 
     # Read portfolio
@@ -51,6 +49,9 @@ def build_brief() -> str:
     # Earnings warnings
     earnings_soon = [r for r in results if r.get("earnings_warning")]
 
+    # Position sizing candidates — more accurate than score categories alone
+    sized_candidates = get_rotation_candidates(holdings, results, total)
+
     # Build message
     lines = []
     lines.append(f"🌅 <b>Good morning — {today}</b>")
@@ -62,13 +63,21 @@ def build_brief() -> str:
     lines.append(f"👀 WATCH:  {len(watch)}")
     lines.append(f"🔄 ROTATE: {len(rotate)}")
 
-    # Rotation candidates
-    if rotate:
+    # Action needed
+    if sized_candidates:
         lines.append("")
         lines.append("⚡ <b>Action needed:</b>")
+        for c in sized_candidates:
+            lines.append(f"  → {c['ticker']} {c['score']}/10 — {c['action']}")
+        lines.append("")
+        lines.append("  👉 /rotate — full analysis + recommendation + next steps")
+    elif rotate:
+        lines.append("")
+        lines.append("⚡ <b>Flagged for review:</b>")
         for r in rotate:
-            lines.append(f"  → {r['ticker']} {r['final_score']}/10 — consider rotating")
-        lines.append("  Type /rotate for suggestions")
+            lines.append(f"  → {r['ticker']} {r['final_score']}/10")
+        lines.append("")
+        lines.append("  👉 /rotate — full analysis + recommendation + next steps")
 
     # Earnings warnings
     if earnings_soon:
@@ -76,6 +85,7 @@ def build_brief() -> str:
         lines.append("⚠️ <b>Earnings this week:</b>")
         for r in earnings_soon:
             lines.append(f"  → {r['ticker']} — {r['earnings_warning']}")
+        lines.append("  Hold these positions until after earnings")
 
     # Top performers
     lines.append("")
@@ -84,8 +94,10 @@ def build_brief() -> str:
         lines.append(f"  → {r['ticker']} {r['final_score']}/10")
 
     lines.append("")
-    lines.append("Type /portfolio for full breakdown")
-    lines.append("Type /score TICKER to dig into any stock")
+    lines.append("─────────────────────")
+    lines.append("/portfolio — full breakdown")
+    lines.append("/score TICKER — dig into any stock")
+    lines.append("/rotate — position sizing analysis")
 
     return "\n".join(lines)
 
@@ -97,6 +109,8 @@ def send_morning_brief():
         brief = build_brief()
         send_telegram(brief)
         print("Morning brief sent.")
+        print()
+        print(brief)
     except Exception as e:
         print(f"Morning brief failed: {e}")
         send_telegram(f"⚠️ Morning brief failed: {e}")
