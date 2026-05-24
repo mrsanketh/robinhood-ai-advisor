@@ -2,7 +2,7 @@
 
 An AI-powered stock portfolio management system that scores your holdings,
 finds rotation opportunities, and delivers daily insights via Telegram.
-Ask anything about your portfolio in natural language — powered by Gemini + LangGraph.
+Ask anything about your portfolio in natural language — powered by Gemini 2.5 Flash + LangGraph.
 
 > ⚠️ **Not financial advice.** This is an educational project. Always do your own
 > research and consult a financial advisor before making investment decisions.
@@ -18,22 +18,27 @@ Ask anything about your portfolio in natural language — powered by Gemini + La
 - Calculates exact tax impact before any trade
 - Delivers 7am morning brief to Telegram automatically every day
 - Answers any portfolio question in natural language via AI agents
+- Records trades you execute and tracks portfolio history
+- Benchmarks your portfolio vs S&P 500
 - Weekly cost check — confirms everything stays free
 - Immediate alerts if costs exceed thresholds
+- All running 24/7 on AWS — no laptop needed
 
 ---
 
-## Natural Language Chat
+## How to use it
 
-Just ask anything in Telegram:
+Just talk to your Telegram bot naturally:
 
 ```
-"How is NVDA doing?"
 "Should I sell SHOP?"
 "Find me a healthcare stock to buy"
+"How is NVDA doing?"
 "What is my portfolio worth?"
-"Which stock can I sell and buy a growth stock?"
-"How much tax if I sell NFLX?"
+"How is my portfolio doing vs S&P 500?"
+"I sold 23 shares of SHOP at $103"
+"What should I do with my NFLX position?"
+"Find me an AI stock I don't own"
 ```
 
 ---
@@ -43,8 +48,10 @@ Just ask anything in Telegram:
 ```
 🌅 Good morning — May 24 2026
 
-💰 Portfolio value: $68,192
-📊 Portfolio score: 6.7/10
+💰 Portfolio value: $68,540
+  ▲ +348 from yesterday
+📊 Portfolio score: 6.8/10
+  ▲ +0.1 from last week
 
 ✅ HOLD:   14
 👀 WATCH:  18
@@ -53,7 +60,7 @@ Just ask anything in Telegram:
 ⚡ Action needed:
   → SHOP 4.57/10 — Trim 77% — reduce to max allowed $682
   → NFLX 6.02/10 — Trim 45% — reduce to max allowed $3,410
-  👉 /rotate — full analysis + recommendation + next steps
+  👉 Ask me: "Should I sell SHOP?"
 
 ⚠️ Earnings this week:
   → CRM — 2 days  → DELL — 3 days
@@ -61,6 +68,79 @@ Just ask anything in Telegram:
 
 🏆 Top performers:
   → GOOGL 9.29/10  → NVDA 9.13/10  → AMZN 8.5/10
+
+─────────────────────
+Just ask me anything in natural language
+"Should I sell SHOP?"  "Find me a healthcare stock"
+```
+
+---
+
+## Daily Routine
+
+**Every morning when the brief arrives (30 seconds):**
+
+```
+1. Any Action needed?
+   → Ask: "Should I sell TICKER?"
+   → Bot gives full analysis + YES/WAIT recommendation
+   → Ask: "What is my tax if I sell TICKER?"
+   → Decide and execute in Robinhood at 9:30am
+   → Tell bot: "I sold X shares of TICKER at $PRICE"
+
+2. Any Earnings warnings?
+   → Do nothing with those stocks until after earnings
+   → Day after: "How is TICKER doing after earnings?"
+
+3. Nothing urgent?
+   → Close Telegram. Go on with your day.
+```
+
+**Most mornings you do nothing.** The brief just confirms everything is healthy.
+
+---
+
+## Important — Use Your Judgment
+
+The app is a research assistant, not a portfolio manager.
+
+- It gives you data and a recommendation
+- You make the final decision
+- Always check tax impact before selling
+- Consider your full financial picture
+- Override the app if you have a good reason the app cannot see
+
+For each ROTATE suggestion ask yourself:
+**"Do I have a reason to keep this that the app cannot see?"**
+If yes → keep it. If no → trust the data.
+
+---
+
+## Rotation Suggestions
+
+```
+🔄 ROTATION
+
+SELL: SHOP
+  Score:          4.57/10
+  Action:         Trim 77% — reduce to max allowed $682
+  Shares to sell: 23  |  Shares to keep: 7
+  Capital freed:  $2,369
+
+BUY: LLY — Eli Lilly and Company
+  Score:      8.12/10  |  Price: $1,065
+  Shares: 2  |  Cost: $2,130
+
+✅ RECOMMENDATION: DO THE ROTATION
+Why:
+  → LLY scores 3.55 points higher than SHOP
+  → No earnings risk for SHOP
+
+📋 Next steps:
+  1️⃣  Ask: "What is my tax if I sell SHOP?"
+  2️⃣  Sell 23 shares of SHOP at 9:30am
+  3️⃣  Buy 2 shares of LLY with proceeds
+  4️⃣  Tell me: "I sold 23 shares of SHOP at $103"
 ```
 
 ---
@@ -96,7 +176,7 @@ Only suggests trades freeing $1,000+ to avoid small pointless trades.
 
 | Component | Technology |
 |---|---|
-| Natural Language AI | Gemini 1.5 Flash (free tier) |
+| Natural Language AI | Gemini 2.5 Flash (free tier) |
 | Agent Orchestration | LangGraph (open source) |
 | Chat + Alerts | Telegram Bot API (free) |
 | Serverless Compute | AWS Lambda (1M req/month free) |
@@ -109,15 +189,82 @@ Only suggests trades freeing $1,000+ to avoid small pointless trades.
 
 ---
 
+## Project Structure
+
+```
+robinhood-ai-advisor/
+├── config.py
+├── requirements.txt
+├── .env.example
+│
+├── agents/
+│   ├── supervisor.py          ← routes questions to right agent
+│   ├── portfolio_agent.py     ← portfolio questions + trade recording
+│   ├── rotation_agent.py      ← sell/buy decisions
+│   └── screener_agent.py      ← finds new stocks (550-stock universe)
+│
+├── data/
+│   ├── yfinance_client.py     ← free stock data
+│   ├── finnhub_client.py      ← analyst recommendations + earnings
+│   └── robinhood_client.py    ← reads your real Robinhood portfolio
+│
+├── scoring/
+│   ├── fundamental_scorer.py  ← F score
+│   ├── momentum_scorer.py     ← M score
+│   ├── sentiment_scorer.py    ← S score
+│   └── engine.py              ← combines all three
+│
+├── portfolio/
+│   ├── rotation_engine.py     ← position sizing + rotation logic
+│   ├── cost_basis_store.py    ← tax calculations (DynamoDB backed)
+│   ├── benchmarking.py        ← tracks alpha vs S&P 500
+│   ├── trade_history.py       ← records trades you execute
+│   └── stock_universe.py      ← 550 quality stocks by sector
+│
+├── notifications/
+│   ├── telegram_bot.py        ← Telegram bot with agent integration
+│   └── morning_brief.py       ← 7am daily digest with trend indicators
+│
+├── monitoring/
+│   └── cost_monitor.py        ← weekly cost check + daily alerts
+│
+├── infra/
+│   ├── lambda_handler.py      ← AWS Lambda + Telegram webhook handler
+│   └── dynamo_store.py        ← DynamoDB operations
+│
+├── scripts/
+│   ├── save_robinhood_token.py ← one-time token setup for Lambda
+│   └── teardown.py            ← clean removal of all AWS resources
+│
+├── dashboard/
+│   └── app.py                 ← Streamlit UI (local only, optional)
+│
+└── docs/
+    ├── architecture.svg
+    └── dashboard.png
+```
+
+---
+
+## Build Status
+
+| Phase | What | Status |
+|---|---|---|
+| Phase 1 | Scoring engine — F + M + S signals | ✅ Complete |
+| Phase 2 | Finnhub sentiment + Robinhood connector + rotation engine | ✅ Complete |
+| Phase 3 | Streamlit dashboard + Telegram bot | ✅ Complete |
+| Phase 4 | AWS Lambda + EventBridge + DynamoDB + LangGraph agents | ✅ Complete |
+| Phase 5 | Webhook 24/7 + screener + benchmarking + trade history | ✅ Complete |
+
+---
+
 ## Prerequisites
 
-Before starting, you need:
-
-- **Python 3.12** — via Anaconda/Miniconda recommended
-- **Robinhood account** — with stocks in it
-- **AWS account** — free tier is sufficient
-- **AWS CLI** — installed and configured
-- **4 free API keys** — all take under 5 minutes to get
+- Python 3.12 — via Anaconda/Miniconda recommended
+- Robinhood account — with stocks in it
+- AWS account — free tier is sufficient
+- AWS CLI — installed and configured
+- 4 free API keys — all take under 5 minutes to get
 
 ---
 
@@ -136,52 +283,40 @@ pip install -r requirements.txt
 ### Step 2 — Get your free API keys
 
 **Finnhub (analyst data):**
-1. Go to https://finnhub.io
-2. Click Sign Up (free, no credit card)
-3. Dashboard → copy your API key
+1. https://finnhub.io → Sign up → copy API key
 
 **Gemini (AI brain):**
-1. Go to https://aistudio.google.com
-2. Sign in with Google account
-3. Click "Create API Key" → copy it
+1. https://aistudio.google.com → Create API Key → copy it
 
 **Telegram bot:**
-1. Open Telegram → search `@BotFather`
-2. Send `/newbot`
-3. Follow instructions → copy the bot token
-4. Search `@userinfobot` → send `/start` → copy your chat ID
+1. Open Telegram → search `@BotFather` → send `/newbot`
+2. Follow instructions → copy the bot token
+3. Search `@userinfobot` → send `/start` → copy your chat ID
 
 ### Step 3 — Configure your environment
 
 ```bash
 cp .env.example .env
+# fill in all values — never commit this file
 ```
 
-Open `.env` and fill in all values. Never commit this file.
-
-### Step 4 — Configure AWS
+### Step 4 — Configure AWS CLI
 
 ```bash
-# Install AWS CLI
 brew install awscli   # Mac
-# or download from https://aws.amazon.com/cli/
-
-# Configure with your AWS credentials
-aws configure
-# Enter: Access Key ID, Secret Access Key, region (us-east-1), output (json)
+aws configure         # enter your AWS credentials
 ```
 
 To get AWS credentials:
 1. AWS Console → IAM → Users → Create user
-2. Attach these policies: `AWSLambdaFullAccess`, `AmazonDynamoDBFullAccess`,
+2. Attach policies: `AWSLambdaFullAccess`, `AmazonDynamoDBFullAccess`,
    `AmazonSSMFullAccess`, `CloudWatchLogsFullAccess`, `AmazonEventBridgeFullAccess`,
-   `AmazonS3FullAccess`, `IAMFullAccess`
+   `AmazonS3FullAccess`, `IAMFullAccess`, `AWSBillingReadOnlyAccess`
 3. Security credentials → Create access key → CLI → copy both values
 
-### Step 5 — Store secrets in AWS
+### Step 5 — Store secrets in AWS SSM
 
 ```bash
-# Store all API keys in AWS SSM Parameter Store (encrypted)
 aws ssm put-parameter --name "/robinhood-ai/finnhub_api_key" \
   --value "YOUR_KEY" --type "SecureString" --region us-east-1
 
@@ -203,14 +338,12 @@ aws ssm put-parameter --name "/robinhood-ai/robinhood_password" \
 
 ### Step 6 — Save Robinhood session token
 
-This allows Lambda to read your portfolio without device approval every time:
-
 ```bash
 python scripts/save_robinhood_token.py
 ```
 
-Approve the device on your Robinhood phone app when prompted. Run this again
-if authentication stops working (every few months).
+Approve the device on your Robinhood phone app when prompted.
+Re-run this script if authentication stops working (every few months).
 
 ### Step 7 — Create DynamoDB tables
 
@@ -255,7 +388,7 @@ aws iam attach-role-policy --role-name robinhood-ai-lambda-role \
 
 ### Step 9 — Build and deploy Lambda
 
-Replace `YOUR_ACCOUNT_ID` with your AWS account ID (found in AWS Console top right).
+Replace `YOUR_ACCOUNT_ID` with your AWS account ID.
 
 ```bash
 # Build dependencies
@@ -266,28 +399,30 @@ pip install yfinance==1.4.0 python-dotenv==1.2.2 requests==2.34.2 \
   --platform manylinux2014_x86_64 --target lambda_build/ \
   --implementation cp --python-version 3.12 --only-binary=:all: --quiet
 
+# Remove numpy/pandas (provided by layer)
+rm -rf lambda_build/numpy lambda_build/numpy.libs
+rm -rf lambda_build/pandas lambda_build/pandas.libs
+rm -rf lambda_build/pygments lambda_build/pygments-*.dist-info
+rm -rf lambda_build/curl_cffi lambda_build/curl_cffi-*.dist-info
+rm -rf lambda_build/zstandard lambda_build/zstandard-*.dist-info
+
 # Copy app code
-cp -r agents/ data/ scoring/ portfolio/ notifications/ infra/ monitoring/ lambda_build/
+cp -r agents data scoring portfolio notifications infra monitoring lambda_build/
 cp config.py lambda_build/config.py
 
-# Create pandas layer (numpy + pandas for Linux)
+# Create pandas layer
 mkdir -p pandas_layer/python
 pip install pandas==2.2.3 numpy==2.2.6 \
   --platform manylinux2014_x86_64 --target pandas_layer/python/ \
   --implementation cp --python-version 3.12 --only-binary=:all: --quiet
 cd pandas_layer && zip -r ../pandas-layer.zip . --quiet && cd ..
 
-# Publish pandas layer
 aws lambda publish-layer-version \
   --layer-name robinhood-ai-pandas \
   --zip-file fileb://pandas-layer.zip \
   --compatible-runtimes python3.12 --region us-east-1
 
-# Remove pandas from main zip (provided by layer)
-rm -rf lambda_build/numpy lambda_build/numpy.libs
-rm -rf lambda_build/pandas lambda_build/pandas.libs
-
-# Create zip and deploy
+# Deploy Lambda
 cd lambda_build && zip -r ../robinhood-ai-lambda.zip . --quiet && cd ..
 
 aws lambda create-function \
@@ -298,17 +433,47 @@ aws lambda create-function \
   --zip-file fileb://robinhood-ai-lambda.zip \
   --timeout 300 --memory-size 512 --region us-east-1
 
-# Attach pandas layer
 aws lambda update-function-configuration \
   --function-name robinhood-ai-morning-brief \
   --layers arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:layer:robinhood-ai-pandas:1 \
   --region us-east-1
+
+# Cleanup
+rm -rf lambda_build pandas_layer robinhood-ai-lambda.zip pandas-layer.zip
 ```
 
-### Step 10 — Schedule with EventBridge
+### Step 10 — Set up Lambda Function URL (Telegram webhook)
 
 ```bash
-# 7am ET morning brief (11:00 UTC)
+aws lambda create-function-url-config \
+  --function-name robinhood-ai-morning-brief \
+  --auth-type NONE --region us-east-1 \
+  --query "FunctionUrl"
+
+# Note the URL returned, then add permissions
+aws lambda add-permission \
+  --function-name robinhood-ai-morning-brief \
+  --statement-id allow-public-url \
+  --action lambda:InvokeFunctionUrl \
+  --principal "*" \
+  --function-url-auth-type NONE --region us-east-1
+
+aws lambda add-permission \
+  --function-name robinhood-ai-morning-brief \
+  --statement-id allow-invoke \
+  --action lambda:InvokeFunction \
+  --principal "*" --region us-east-1
+
+# Register webhook with Telegram (replace YOUR_URL and YOUR_BOT_TOKEN)
+curl "https://api.telegram.org/botYOUR_BOT_TOKEN/setWebhook?url=YOUR_LAMBDA_URL"
+```
+
+### Step 11 — Schedule with EventBridge
+
+Replace `YOUR_ACCOUNT_ID` with your AWS account ID.
+
+```bash
+# 7am ET morning brief
 aws events put-rule --name robinhood-ai-morning-brief \
   --schedule-expression "cron(0 11 * * ? *)" --state ENABLED --region us-east-1
 
@@ -322,7 +487,7 @@ aws events put-targets --rule robinhood-ai-morning-brief \
   --targets '[{"Id":"1","Arn":"arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:function:robinhood-ai-morning-brief","Input":"{\"task\":\"morning_brief\"}"}]' \
   --region us-east-1
 
-# 4pm ET stop-loss scan (20:00 UTC)
+# 4pm ET stop-loss scan
 aws events put-rule --name robinhood-ai-afternoon-scan \
   --schedule-expression "cron(0 20 * * ? *)" --state ENABLED --region us-east-1
 
@@ -337,33 +502,105 @@ aws events put-targets --rule robinhood-ai-afternoon-scan \
   --region us-east-1
 ```
 
-### Step 11 — Run locally
+### Step 12 — Enable Cost Explorer
+
+AWS Console → search "Cost Explorer" → Launch Cost Explorer
+Wait 24 hours for data to populate.
+
+---
+
+## Updating Lambda After Code Changes
 
 ```bash
-# Telegram bot (for chat)
-python notifications/telegram_bot.py
+cd your-project-directory
 
-# Test morning brief
-python notifications/morning_brief.py
+mkdir lambda_build
+pip install yfinance==1.4.0 python-dotenv==1.2.2 requests==2.34.2 \
+  robin-stocks==3.4.0 finnhub-python==2.4.28 boto3==1.43.14 \
+  langchain==1.3.1 langgraph==1.2.1 langchain-google-genai==4.2.3 \
+  --platform manylinux2014_x86_64 --target lambda_build/ \
+  --implementation cp --python-version 3.12 --only-binary=:all: --quiet
 
-# Streamlit dashboard (optional, local only)
-streamlit run dashboard/app.py
+rm -rf lambda_build/numpy lambda_build/numpy.libs
+rm -rf lambda_build/pandas lambda_build/pandas.libs
+rm -rf lambda_build/pygments lambda_build/pygments-*.dist-info
+rm -rf lambda_build/curl_cffi lambda_build/curl_cffi-*.dist-info
+rm -rf lambda_build/zstandard lambda_build/zstandard-*.dist-info
+
+cp -r agents data scoring portfolio notifications infra monitoring lambda_build/
+cp config.py lambda_build/config.py
+
+cd lambda_build && zip -r ../robinhood-ai-lambda.zip . --quiet && cd ..
+
+aws lambda update-function-code \
+  --function-name robinhood-ai-morning-brief \
+  --zip-file fileb://robinhood-ai-lambda.zip --region us-east-1
+
+sleep 15 && aws lambda update-function-configuration \
+  --function-name robinhood-ai-morning-brief \
+  --layers arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:layer:robinhood-ai-pandas:1 \
+  --region us-east-1
+
+rm -rf lambda_build robinhood-ai-lambda.zip
 ```
 
 ---
 
-## Telegram Commands
+## Teardown
 
-```
-/score NVDA    — score any stock
-/portfolio     — full portfolio breakdown
-/rotate        — position sizing analysis
-/tax SHOP      — tax impact if you sell
-/status        — quick portfolio summary
-/help          — show all commands
+To remove all AWS resources:
+
+```bash
+python scripts/teardown.py
 ```
 
-Or just ask naturally — the AI handles the rest.
+This backs up your cost basis to Telegram first, then deletes everything.
+
+---
+
+## Troubleshooting
+
+**Morning brief stopped arriving:**
+```
+Cause: Robinhood token expired (every few months)
+Fix:   python scripts/save_robinhood_token.py
+       Approve on Robinhood phone app when prompted
+```
+
+**Bot not responding in Telegram:**
+```
+Cause: Webhook URL may have changed
+Fix:   aws lambda get-function-url-config \
+         --function-name robinhood-ai-morning-brief --region us-east-1
+       Then re-register: curl "https://api.telegram.org/botTOKEN/setWebhook?url=NEW_URL"
+```
+
+**"Gemini quota exceeded" error:**
+```
+Cause: Hit free tier limit (1,500 req/day after Dec 2025 reduction)
+Fix:   Wait until midnight — quota resets automatically
+       Avoid heavy use (multiple /rotate calls) that day
+```
+
+**Score looks wrong (e.g. 175% profit margin):**
+```
+Cause: yfinance sometimes returns bad data for unusual companies
+Fix:   App handles gracefully — uses neutral scores for bad data
+```
+
+**Cost Explorer shows "not enabled":**
+```
+Fix:   AWS Console → search "Cost Explorer" → Launch Cost Explorer
+       Wait 24 hours for data
+```
+
+**Robin_stocks returns wrong avg cost:**
+```
+Cause: Adjusted cost basis for split stocks
+Fix:   Use natural language: "What is my tax if I sell TICKER?"
+       Enter your real avg cost from Robinhood app when prompted
+       Saved to DynamoDB for future calculations
+```
 
 ---
 
@@ -380,211 +617,48 @@ Every Monday the brief includes:
   yfinance:          free ✅  Finnhub: free ✅  Telegram: free ✅
 ```
 
-Immediate alert sent if AWS charges detected or Gemini approaches daily limit.
+Immediate alert sent if AWS charges detected or Gemini approaches 80% of daily limit — with exact next steps.
 
 ---
 
-## Security Notes
+## Security
 
-- All API keys stored in AWS SSM Parameter Store (AES-256 encrypted)
+- All API keys in AWS SSM Parameter Store (AES-256 encrypted)
 - `.env` file is gitignored — never committed
 - Robinhood session token stored encrypted in SSM — never in code
 - Lambda IAM role has minimum required permissions only
 - Telegram bot only responds to your personal chat ID
+- Lambda Function URL uses random string — effectively secret
 
 ---
 
-## Important Limitations
+## Limitations
 
-- **Cost basis:** robin_stocks may return incorrect avg cost for stocks with splits
-  or multiple purchase lots. Always verify in Robinhood app → your position → Average Cost.
-  Use `/tax TICKER` to enter your real avg cost — saved to DynamoDB.
+**robin_stocks cost basis:** May return adjusted avg cost for split stocks.
+Always verify in Robinhood app. Use natural language tax queries — saved to DynamoDB.
 
-- **Robinhood token:** expires every few months. Re-run
-  `python scripts/save_robinhood_token.py` when morning briefs stop working.
+**Robinhood token:** Expires every few months. Re-run
+`python scripts/save_robinhood_token.py` when morning briefs stop working.
 
-- **Gemini free tier:** 1,500 requests/day. Heavy conversational use may hit limits.
-  The app alerts you when approaching 80% of the daily limit.
+**Gemini free tier:** 1,500 requests/day (reduced December 2025). Heavy use may hit limits.
+App alerts you when approaching 80% of daily limit.
+
+**Stock universe:** 550 curated stocks. Add new tickers manually to
+`portfolio/stock_universe.py` when needed.
+
+**Benchmarking:** Needs 7+ days of data before showing meaningful trends.
 
 ---
 
 ## Disclaimer
 
 This project is for educational purposes only. It is not financial advice.
-Past performance of any strategy does not guarantee future results.
-Always consult a qualified financial advisor before making investment decisions.
-The author is not responsible for any financial losses.
+Past performance does not guarantee future results. Always consult a qualified
+financial advisor before making investment decisions. The author is not responsible
+for any financial losses.
 
 ---
 
 ## Author
 
 [mrsanketh](https://github.com/mrsanketh)
-
----
-
-## Daily Routine
-
-**Every morning when the brief arrives (takes 30 seconds):**
-
-```
-1. Read the brief
-2. Any new ROTATE or Action needed?
-   → Run /rotate in Telegram
-   → See full analysis + recommendation
-   → Run /tax TICKER to see tax impact
-   → If YES recommendation → execute in Robinhood at 9:30am
-3. Any earnings warnings?
-   → Hold those stocks until after earnings
-   → Run /score TICKER the day after earnings
-4. Portfolio score trending down?
-   → Ask "Why is my portfolio score dropping?"
-   → Agent will investigate and explain
-5. Nothing urgent?
-   → Close Telegram, go on with your day
-```
-
-**Most mornings you do nothing.** The brief just confirms everything is healthy.
-
-**Weekly on Monday:**
-- Check the cost summary at the bottom of the brief
-- Confirm AWS $0.00, Gemini within limits
-
----
-
-## Updating Lambda After Code Changes
-
-When you change any Python file, redeploy to Lambda:
-
-```bash
-# Rebuild zip
-rm -rf lambda_build robinhood-ai-lambda.zip
-mkdir lambda_build
-
-pip install yfinance==1.4.0 python-dotenv==1.2.2 requests==2.34.2 \
-  robin-stocks==3.4.0 finnhub-python==2.4.28 boto3==1.43.14 \
-  langchain==1.3.1 langgraph==1.2.1 langchain-google-genai==4.2.3 \
-  --platform manylinux2014_x86_64 --target lambda_build/ \
-  --implementation cp --python-version 3.12 --only-binary=:all: --quiet
-
-rm -rf lambda_build/numpy lambda_build/numpy.libs
-rm -rf lambda_build/pandas lambda_build/pandas.libs
-
-cp -r agents/ data/ scoring/ portfolio/ notifications/ infra/ monitoring/ lambda_build/
-cp config.py lambda_build/config.py
-
-cd lambda_build && zip -r ../robinhood-ai-lambda.zip . --quiet && cd ..
-
-# Deploy (replace YOUR_ACCOUNT_ID)
-aws lambda update-function-code \
-  --function-name robinhood-ai-morning-brief \
-  --zip-file fileb://robinhood-ai-lambda.zip \
-  --region us-east-1
-
-# Reattach pandas layer after update
-sleep 15 && aws lambda update-function-configuration \
-  --function-name robinhood-ai-morning-brief \
-  --layers arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:layer:robinhood-ai-pandas:1 \
-  --region us-east-1
-
-# Clean up
-rm -rf lambda_build robinhood-ai-lambda.zip
-```
-
----
-
-## Troubleshooting
-
-**Morning brief stopped arriving:**
-```
-Most likely cause: Robinhood token expired (happens every few months)
-Fix: python scripts/save_robinhood_token.py
-     Approve device on Robinhood phone app when prompted
-```
-
-**"Gemini quota exceeded" error in Telegram:**
-```
-Cause: Hit free tier limit of 1,500 requests/day
-Fix: Wait until midnight — quota resets automatically
-     Avoid heavy use (multiple /rotate or /portfolio calls) that day
-     Long term: add billing to Google AI Studio ($0 until $10 in usage)
-```
-
-**Agent answers with raw JSON instead of text:**
-```
-Cause: Gemini API returning metadata in response
-Fix: Already handled in code — pull latest from GitHub and redeploy
-```
-
-**Lambda timeout error:**
-```
-Cause: Scoring 35 stocks + Finnhub rate limiting takes ~3 minutes
-Fix: Timeout is already set to 300 seconds (5 min) — should not happen
-     If it does: check CloudWatch logs in AWS Console → Lambda → Monitor
-```
-
-**Score looks wrong for a stock (e.g. 175% profit margin):**
-```
-Cause: yfinance sometimes returns bad data for small/unusual companies
-Fix: Run /score TICKER manually to check
-     The app handles this gracefully — if data looks suspicious it uses neutral scores
-```
-
-**"No module named X" error after pulling new code:**
-```
-Fix: pip install -r requirements.txt
-     Then redeploy Lambda if the fix is needed in production
-```
-
-**Robinhood shows different avg cost than /tax shows:**
-```
-Cause: robin_stocks returns adjusted cost basis for split stocks
-Fix: Use /tax TICKER → enter your real avg cost from Robinhood app
-     It saves to DynamoDB and uses that going forward
-```
-
-**Cost Explorer shows "not enabled" error:**
-```
-Fix: AWS Console → search "Cost Explorer" → Launch Cost Explorer
-     Wait 24 hours for data to populate
-```
-
----
-
-## Architecture
-
-```
-Your Phone (Telegram)
-        ↓ ↑
-Telegram Bot API
-        ↓ ↑
-AWS Lambda (robinhood-ai-morning-brief)
-    ├── Morning brief (7am via EventBridge)
-    ├── Stop-loss scan (4pm via EventBridge)
-    └── Chat responses (webhook — coming soon)
-        ↓
-LangGraph Supervisor
-    ├── Portfolio Agent  → answers portfolio questions
-    ├── Rotation Agent   → handles sell/buy decisions
-    └── Screener Agent   → finds new stocks
-        ↓
-Data Layer
-    ├── yfinance         → stock prices + fundamentals
-    ├── Finnhub          → analyst recommendations
-    └── robin_stocks     → your Robinhood holdings
-        ↓
-Storage
-    ├── DynamoDB         → portfolio history + cost basis
-    └── SSM Parameter    → all secrets (encrypted)
-```
-
----
-
-## Roadmap
-
-- [ ] Telegram webhook deployment (bot works 24/7 without laptop)
-- [ ] Conviction-based position sizing for 3-month growth strategy
-- [ ] Stock screener scanning 550-stock universe daily
-- [ ] Portfolio benchmarking vs S&P 500
-- [ ] Trade history tracking in DynamoDB
-- [ ] Teardown script for clean AWS resource removal
