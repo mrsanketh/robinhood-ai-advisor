@@ -37,6 +37,15 @@ def build_brief() -> str:
     avg_score     = sum(r["final_score"] for r in results) / len(results)
     top3          = sorted(results, key=lambda x: x["final_score"], reverse=True)[:3]
     earnings_soon = [r for r in results if r.get("earnings_warning")]
+    # Save daily benchmark snapshot
+    try:
+        from portfolio.benchmarking import save_benchmark_snapshot
+        from data.yfinance_client   import yf_client
+        spy_price = yf_client.get_current_price("SPY")
+        save_benchmark_snapshot(total, spy_price)
+    except Exception as e:
+        logger.warning(f"Could not save benchmark: {e}")
+
     sized_candidates = get_rotation_candidates(holdings, results, total)
 
     lines = []

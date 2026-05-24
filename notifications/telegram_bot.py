@@ -206,6 +206,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+
+# ── /performance ──────────────────────────────────────────────────
+async def cmd_performance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_me(update): return
+    try:
+        from portfolio.benchmarking import calculate_performance, format_performance
+        days = int(context.args[0]) if context.args else 30
+        perf = calculate_performance(days)
+        await send(update, format_performance(perf))
+    except Exception as e:
+        await send(update, f"Error: {e}")
+
+
 # ── Main ──────────────────────────────────────────────────────────
 def main():
     app = ApplicationBuilder().token(config.TELEGRAM_BOT_TOKEN).build()
@@ -216,6 +229,7 @@ def main():
     app.add_handler(CommandHandler("rotate",    cmd_rotate))
     app.add_handler(CommandHandler("tax",       cmd_tax))
     app.add_handler(CommandHandler("status",    cmd_status))
+    app.add_handler(CommandHandler("performance", cmd_performance))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("🤖 Bot started. Send a message to your bot.")
     app.run_polling()

@@ -121,7 +121,7 @@ def run_portfolio_agent(question: str) -> str:
             temperature=0.1,
         )
 
-        tools = [get_portfolio_summary, get_stock_score, get_tax_impact, get_position_details]
+        tools = [get_portfolio_summary, get_stock_score, get_tax_impact, get_position_details, get_performance_vs_market, record_executed_trade, get_trade_history]
 
         system_prompt = (
             "You are a personal portfolio advisor. "
@@ -143,3 +143,34 @@ def run_portfolio_agent(question: str) -> str:
     except Exception as e:
         logger.error(f"Portfolio agent error: {e}")
         return f"Sorry, I had trouble answering that. Try /portfolio for a summary."
+
+
+@tool
+def get_performance_vs_market(days: int = 30) -> str:
+    """Get portfolio performance vs S&P 500 over last N days (7, 30, or 90)."""
+    from portfolio.benchmarking import calculate_performance, format_performance
+    perf = calculate_performance(days)
+    return format_performance(perf)
+
+
+@tool
+def record_executed_trade(action: str, ticker: str, shares: float, price: float) -> str:
+    """
+    Record a trade you executed in Robinhood.
+    action: BUY or SELL
+    Example: record_executed_trade('SELL', 'SHOP', 23, 103.0)
+    """
+    from portfolio.trade_history import record_trade
+    success = record_trade(action.upper(), ticker.upper(), shares, price)
+    if success:
+        total = round(shares * price, 2)
+        return f"✅ Recorded: {action.upper()} {shares} shares of {ticker.upper()} at ${price} = ${total:,.2f}"
+    return "Failed to record trade. Try again."
+
+
+@tool
+def get_trade_history(days: int = 30) -> str:
+    """Get your recent trade history from the last N days."""
+    from portfolio.trade_history import get_recent_trades, format_trade_history
+    trades = get_recent_trades(days)
+    return format_trade_history(trades)

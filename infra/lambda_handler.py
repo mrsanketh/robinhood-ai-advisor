@@ -129,16 +129,171 @@ def run_afternoon_scan():
         logger.info("No stop-loss alerts triggered")
 
 
+def handle_telegram_webhook(event: dict):
+    """
+    Handle incoming Telegram webhook message.
+    Called when user sends a message to the bot.
+    """
+    import json
+    import requests
+
+    body = json.loads(event.get("body", "{}"))
+    message = body.get("message", {})
+
+    if not message:
+        return {"statusCode": 200, "body": "ok"}
+
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    text    = message.get("text", "").strip()
+
+    # Security — only respond to your personal chat ID
+    if chat_id != os.environ.get("TELEGRAM_CHAT_ID", ""):
+        logger.warning(f"Unauthorized chat_id: {chat_id}")
+        return {"statusCode": 200, "body": "ok"}
+
+    if not text:
+        return {"statusCode": 200, "body": "ok"}
+
+    logger.info(f"Webhook message: {text[:50]}")
+
+    def send(msg: str):
+        requests.post(
+            f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
+            json={"chat_id": chat_id, "text": msg},
+            timeout=10
+        )
+
+    try:
+        # Handle commands
+        if text.startswith("/start") or text.startswith("/help"):
+            send(
+                "🤖 Robinhood AI Advisor\n\n"
+                "Just ask me anything:\n"
+                "\"How is NVDA doing?\"\n"
+                "\"Should I sell SHOP?\"\n"
+                "\"Find me a healthcare stock\"\n\n"
+                "Commands:\n"
+                "/score NVDA — quick score\n"
+                "/portfolio  — full breakdown\n"
+                "/rotate     — rotation suggestions\n"
+                "/tax SHOP   — tax impact\n"
+                "/status     — quick summary"
+            )
+
+        elif text.startswith("/score"):
+            parts  = text.split()
+            ticker = parts[1].upper() if len(parts) > 1 else ""
+            if not ticker:
+                send("Usage: /score NVDA")
+            else:
+                send(f"Scoring {ticker}...")
+                from scoring.engine import score_stock
+                r   = score_stock(ticker)
+                msg = (
+                    f"📊 {ticker} — {r['company_name']}\n\n"
+                    f"Score: {r['final_score']}/10 {r['category']}\n"
+                    f"F: {r['fundamental_score']}  M: {r['momentum_score']}  S: {r['sentiment_score']}\n"
+                    f"Price: ${r['current_price']}\n"
+                )
+                if r.get("earnings_warning"):
+                    msg += f"\n{r['earnings_warning']}"
+                send(msg)
+
+        elif text.startswith("/status"):
+            from data.robinhood_client import robinhood_client
+            total = robinhood_client.get_total_value()
+            send(f"💰 Portfolio: ${total:,.0f}\n\n/portfolio — full breakdown\n/rotate — what to sell")
+
+        elif text.startswith("/portfolio"):
+            send("Reading portfolio... ~2 minutes")
+            from data.robinhood_client import robinhood_client
+            from scoring.engine        import score_portfolio
+            holdings = robinhood_client.get_holdings()
+            total    = robinhood_client.get_total_value()
+            tickers  = [h["ticker"] for h in holdings]
+            results  = score_portfolio(tickers)
+            hold     = [r for r in results if r["category"] == "HOLD"]
+            watch    = [r for r in results if r["category"] == "WATCH"]
+            rotate   = [r for r in results if r["category"] == "ROTATE"]
+            avg      = sum(r["final_score"] for r in results) / len(results)
+            msg  = f"📈 Portfolio\n\nTotal: ${total:,.0f}\nScore: {avg:.1f}/10\n\n"
+            msg += f"✅ HOLD: {len(hold)}  👀 WATCH: {len(watch)}  🔄 ROTATE: {len(rotate)}\n"
+            if rotate:
+                msg += "\nRotate:\n"
+                for r in rotate:
+                    msg += f"  {r['ticker']} {r['final_score']}/10\n"
+            send(msg)
+
+        elif text.startswith("/rotate"):
+            send("Analysing... ~3 minutes")
+            from portfolio.rotation_engine import run_rotation_analysis, format_suggestion
+            suggestions = run_rotation_analysis()
+            if not suggestions:
+                send("✅ All positions within limits.")
+            else:
+                for s in suggestions:
+                    send(format_suggestion(s))
+
+        elif text.startswith("/tax"):
+            parts  = text.split()
+            ticker = parts[1].upper() if len(parts) > 1 else ""
+            if not ticker:
+                send("Usage: /tax SHOP")
+            else:
+                from portfolio.cost_basis_store import get as get_cost, calculate_tax
+                from data.robinhood_client      import robinhood_client
+                from data.yfinance_client       import yf_client
+                avg_cost = get_cost(ticker)
+                if avg_cost is None:
+                    send(f"No avg cost saved for {ticker}.\nOpen Robinhood → {ticker} → Average Cost\nReply with the number (e.g. 55.22)")
+                else:
+                    holdings = robinhood_client.get_holdings()
+                    holding  = next((h for h in holdings if h["ticker"] == ticker), None)
+                    if holding:
+                        price = yf_client.get_current_price(ticker)
+                        tax   = calculate_tax(ticker, holding["shares"], price)
+                        if tax["available"]:
+                            msg  = f"💰 Tax: {ticker}\n\n"
+                            msg += f"Avg cost: ${tax['avg_cost']} | Now: ${tax['current_price']}\n"
+                            msg += f"Gain: ${tax['total_gain']:,.2f}\n"
+                            msg += f"Short term (22%): ${tax['short_term_tax']:,.2f}\n"
+                            msg += f"Long term  (15%): ${tax['long_term_tax']:,.2f}\n"
+                            msg += f"Net (long term): ${tax['net_long_term']:,.2f}"
+                            send(msg)
+
+        else:
+            # Natural language → supervisor agent
+            send("Thinking...")
+            from agents.supervisor import run_supervisor
+            response = run_supervisor(text)
+            send(response)
+
+    except Exception as e:
+        logger.error(f"Webhook handler error: {e}")
+        send("Sorry, something went wrong. Try again or use /help")
+
+    return {"statusCode": 200, "body": "ok"}
+
+
 def handler(event, context):
     """
     Main Lambda handler.
-    EventBridge passes a 'task' field to tell us which job to run.
+
+    Three trigger types:
+    1. EventBridge scheduled → {"task": "morning_brief"} or {"task": "afternoon_scan"}
+    2. Telegram webhook → {"body": "{...telegram message...}", "requestContext": {...}}
+    3. Manual test → {"task": "morning_brief"}
     """
-    logger.info(f"Lambda triggered: {json.dumps(event)}")
+    logger.info(f"Lambda triggered")
 
     # Load secrets from SSM
     load_secrets()
 
+    # Telegram webhook — has "body" and "requestContext" fields
+    if "body" in event and "requestContext" in event:
+        return handle_telegram_webhook(event)
+
+    # EventBridge scheduled task
     task = event.get("task", "morning_brief")
 
     if task == "morning_brief":
