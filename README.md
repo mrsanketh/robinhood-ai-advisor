@@ -7,6 +7,12 @@ Ask anything about your portfolio in natural language — powered by Gemini 2.5 
 > ⚠️ **Not financial advice.** This is an educational project. Always do your own
 > research and consult a financial advisor before making investment decisions.
 
+> ⚠️ **robin_stocks disclaimer.** This app uses [robin_stocks](https://github.com/jmfernandes/robin_stocks),
+> an unofficial third-party library that reverse-engineers Robinhood's private API.
+> It is not endorsed by Robinhood. Robinhood could change their API at any time and break this integration,
+> or in theory restrict accounts that use it. Use at your own risk.
+> **Never share your Robinhood credentials with anyone or commit them to GitHub.**
+
 ---
 
 ## What it does
