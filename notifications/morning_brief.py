@@ -3,21 +3,19 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests
+import logging
 from datetime import datetime
 import config
 from scoring.engine            import score_portfolio
 from data.robinhood_client     import robinhood_client
 from portfolio.rotation_engine import get_rotation_candidates
 
+logger = logging.getLogger(__name__)
+
 
 def send_telegram(text: str):
-    """Send a message to your Telegram."""
     url  = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {
-        "chat_id":    config.TELEGRAM_CHAT_ID,
-        "text":       text,
-        "parse_mode": "HTML",
-    }
+    data = {"chat_id": config.TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
         requests.post(url, json=data, timeout=10)
     except Exception as e:
@@ -25,34 +23,23 @@ def send_telegram(text: str):
 
 
 def build_brief() -> str:
-    """Build the 7am morning brief."""
     today = datetime.now().strftime("%B %d %Y")
 
-    # Read portfolio
     holdings = robinhood_client.get_holdings()
     total    = robinhood_client.get_total_value()
     tickers  = [h["ticker"] for h in holdings]
+    results  = score_portfolio(tickers)
 
-    # Score all holdings
-    results = score_portfolio(tickers)
-
-    # Categorise
     hold   = [r for r in results if r["category"] == "HOLD"]
     watch  = [r for r in results if r["category"] == "WATCH"]
     rotate = [r for r in results if r["category"] == "ROTATE"]
 
-    avg_score = sum(r["final_score"] for r in results) / len(results)
-
-    # Top 3 performers
-    top3 = sorted(results, key=lambda x: x["final_score"], reverse=True)[:3]
-
-    # Earnings warnings
+    avg_score     = sum(r["final_score"] for r in results) / len(results)
+    top3          = sorted(results, key=lambda x: x["final_score"], reverse=True)[:3]
     earnings_soon = [r for r in results if r.get("earnings_warning")]
 
-    # Position sizing candidates — more accurate than score categories alone
     sized_candidates = get_rotation_candidates(holdings, results, total)
 
-    # Build message
     lines = []
     lines.append(f"🌅 <b>Good morning — {today}</b>")
     lines.append("")
@@ -63,7 +50,6 @@ def build_brief() -> str:
     lines.append(f"👀 WATCH:  {len(watch)}")
     lines.append(f"🔄 ROTATE: {len(rotate)}")
 
-    # Action needed
     if sized_candidates:
         lines.append("")
         lines.append("⚡ <b>Action needed:</b>")
@@ -79,7 +65,6 @@ def build_brief() -> str:
         lines.append("")
         lines.append("  👉 /rotate — full analysis + recommendation + next steps")
 
-    # Earnings warnings
     if earnings_soon:
         lines.append("")
         lines.append("⚠️ <b>Earnings this week:</b>")
@@ -87,11 +72,18 @@ def build_brief() -> str:
             lines.append(f"  → {r['ticker']} — {r['earnings_warning']}")
         lines.append("  Hold these positions until after earnings")
 
-    # Top performers
     lines.append("")
     lines.append("🏆 <b>Top performers:</b>")
     for r in top3:
         lines.append(f"  → {r['ticker']} {r['final_score']}/10")
+
+    # Weekly cost check — Mondays only
+    try:
+        from monitoring.cost_monitor import build_cost_section, is_monday
+        if is_monday():
+            lines.append(build_cost_section())
+    except Exception as e:
+        logger.warning(f"Cost monitor failed: {e}")
 
     lines.append("")
     lines.append("─────────────────────")
@@ -103,7 +95,6 @@ def build_brief() -> str:
 
 
 def send_morning_brief():
-    """Build and send the morning brief to Telegram."""
     print("Building morning brief...")
     try:
         brief = build_brief()
