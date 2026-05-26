@@ -23,22 +23,41 @@ LAMBDA_ALERT_PCT        = 0.80    # alert if Lambda exceeds 80% of free tier
 
 
 def get_aws_cost() -> dict:
-    """Get AWS cost for current month using Cost Explorer."""
+    """Get AWS cost — daily and monthly using Cost Explorer."""
     try:
         client = boto3.client("ce", region_name="us-east-1")
         today  = datetime.now()
-        start  = today.replace(day=1).strftime("%Y-%m-%d")
-        end    = today.strftime("%Y-%m-%d")
-        response = client.get_cost_and_usage(
-            TimePeriod={"Start": start, "End": end},
+
+        # Monthly cost
+        month_start = today.replace(day=1).strftime("%Y-%m-%d")
+        end         = today.strftime("%Y-%m-%d")
+
+        # Daily cost (yesterday — today may not be complete yet)
+        from datetime import timedelta
+        yesterday    = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        monthly = client.get_cost_and_usage(
+            TimePeriod={"Start": month_start, "End": end},
             Granularity="MONTHLY",
             Metrics=["UnblendedCost"],
         )
-        amount = float(response["ResultsByTime"][0]["Total"]["UnblendedCost"]["Amount"])
-        return {"available": True, "amount": round(amount, 4)}
+        daily = client.get_cost_and_usage(
+            TimePeriod={"Start": yesterday, "End": end},
+            Granularity="DAILY",
+            Metrics=["UnblendedCost"],
+        )
+
+        monthly_amount = float(monthly["ResultsByTime"][0]["Total"]["UnblendedCost"]["Amount"])
+        daily_amount   = float(daily["ResultsByTime"][0]["Total"]["UnblendedCost"]["Amount"]) if daily["ResultsByTime"] else 0
+
+        return {
+            "available":      True,
+            "monthly":        round(monthly_amount, 4),
+            "daily":          round(daily_amount, 4),
+        }
     except Exception as e:
         logger.warning(f"Could not get AWS cost: {e}")
-        return {"available": False, "amount": 0}
+        return {"available": False, "monthly": 0, "daily": 0}
 
 
 def get_lambda_invocations() -> dict:
@@ -175,31 +194,31 @@ def build_cost_section() -> str:
     lines.append("")
     lines.append("💸 <b>Weekly Cost Check</b>")
 
-    # AWS
+    # AWS cost — daily and monthly
     if aws["available"]:
-        if aws["amount"] == 0:
-            lines.append(f"  AWS this month:    $0.00  ✅")
-        elif aws["amount"] < AWS_COST_ALERT_USD:
-            lines.append(f"  AWS this month:    ${aws['amount']:.4f}  ✅ negligible")
-        else:
-            lines.append(f"  AWS this month:    ${aws['amount']:.2f}  ⚠️ check console")
+        daily_status   = "✅" if aws["daily"] < AWS_COST_ALERT_USD else "⚠️ check console"
+        monthly_status = "✅" if aws["monthly"] < AWS_COST_ALERT_USD else "⚠️ check console"
+        lines.append(f"  AWS yesterday:     ${aws['daily']:.4f}  {daily_status}")
+        lines.append(f"  AWS this month:    ${aws['monthly']:.4f}  {monthly_status}")
     else:
-        lines.append(f"  AWS cost:          unavailable")
+        lines.append(f"  AWS cost:          unavailable (enable Cost Explorer)")
 
     # Lambda
-    lines.append(f"  Lambda calls:      {lam['count']:,} / 1,000,000 per month  ({lam['pct']}%)")
+    lambda_status = "✅" if lam["pct"] < 80 else "⚠️ high"
+    lines.append(f"  Lambda:  {lam['count']:,} / 1,000,000 per month  ({lam['pct']}%) {lambda_status}")
 
     # Gemini
-    gemini_status = "✅" if gemini["pct"] < 80 else "⚠️ high"
-    lines.append(f"  Gemini calls:      {gemini['calls_today']} / {gemini['daily_limit']} per day  ({gemini['pct']}%) {gemini_status}")
+    gemini_status = "✅" if gemini["pct"] < 80 else "⚠️ approaching limit"
+    lines.append(f"  Gemini:  {gemini['calls_today']} / {gemini['daily_limit']} per day  ({gemini['pct']}%) {gemini_status}")
 
     # DynamoDB
-    lines.append(f"  DynamoDB rows:     {dynamo['portfolio']} portfolio + {dynamo['costbasis']} cost basis (25GB free)")
+    lines.append(f"  DynamoDB: {dynamo['portfolio']} rows / 25,000,000,000 (25GB free) ✅")
 
     # External APIs
-    lines.append(f"  yfinance:          free ✅")
-    lines.append(f"  Finnhub:           free ✅")
-    lines.append(f"  Telegram:          free ✅")
+    lines.append(f"")
+    lines.append(f"  Finnhub:   60 calls/min — free ✅")
+    lines.append(f"  yfinance:  unlimited — free ✅")
+    lines.append(f"  Telegram:  unlimited — free ✅")
 
     return "\n".join(lines)
 
