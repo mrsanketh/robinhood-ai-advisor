@@ -205,25 +205,31 @@ def handle_telegram_webhook(event: dict):
             send(f"💰 Portfolio: ${total:,.0f}\n\n/portfolio — full breakdown\n/rotate — what to sell")
 
         elif text.startswith("/portfolio"):
-            send("Reading portfolio... ~2 minutes")
-            from data.robinhood_client import robinhood_client
-            from scoring.engine        import score_portfolio
-            holdings = robinhood_client.get_holdings()
-            total    = robinhood_client.get_total_value()
-            tickers  = [h["ticker"] for h in holdings]
-            results  = score_portfolio(tickers)
-            hold     = [r for r in results if r["category"] == "HOLD"]
-            watch    = [r for r in results if r["category"] == "WATCH"]
-            rotate   = [r for r in results if r["category"] == "ROTATE"]
-            avg      = sum(r["final_score"] for r in results) / len(results)
-            msg  = f"📈 Portfolio\n\nTotal: ${total:,.0f}\nScore: {avg:.1f}/10\n\n"
-            msg += f"✅ HOLD: {len(hold)}  👀 WATCH: {len(watch)}  🔄 ROTATE: {len(rotate)}\n"
-            if rotate:
-                msg += "\nRotate:\n"
-                for r in rotate:
-                    msg += f"  {r['ticker']} {r['final_score']}/10\n"
-            send(msg)
-
+            send("Reading portfolio...")
+            try:
+                from infra.dynamo_store import get_portfolio_snapshot
+                from datetime import datetime
+                today = datetime.now().strftime("%Y-%m-%d")
+                items = get_portfolio_snapshot(today)
+                if not items:
+                    send("No data for today yet. Run morning brief first or wait until 7am.")
+                else:
+                    real = [i for i in items if not str(i.get("ticker","")).startswith("__")]
+                    hold   = [i for i in real if i.get("category") == "HOLD"]
+                    watch  = [i for i in real if i.get("category") == "WATCH"]
+                    rotate = [i for i in real if i.get("category") == "ROTATE"]
+                    total  = float(items[0].get("total_value", 0)) if items else 0
+                    scores = [float(i["score"]) for i in real]
+                    avg    = sum(scores) / len(scores) if scores else 0
+                    msg    = f"📈 Portfolio (today's brief)\n\nTotal: ${total:,.0f}\nScore: {avg:.1f}/10\n\n"
+                    msg   += f"✅ HOLD: {len(hold)}  👀 WATCH: {len(watch)}  🔄 ROTATE: {len(rotate)}\n"
+                    if rotate:
+                        msg += "\nRotate candidates:\n"
+                        for r in sorted(rotate, key=lambda x: float(x["score"]))[:5]:
+                            msg += f"  {r['ticker']} {float(r['score']):.1f}/10\n"
+                    send(msg)
+            except Exception as e:
+                send(f"Could not read portfolio: {e}")
         elif text.startswith("/rotate"):
             send("Analysing... ~3 minutes")
             from portfolio.rotation_engine import run_rotation_analysis, format_suggestion
