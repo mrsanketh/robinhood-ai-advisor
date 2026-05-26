@@ -136,10 +136,10 @@ def check_thresholds() -> list:
 
     # AWS cost check
     aws = get_aws_cost()
-    if aws["available"] and aws["amount"] >= AWS_COST_ALERT_USD:
+    if aws["available"] and aws.get("daily", aws.get("amount", 0)) >= AWS_COST_ALERT_USD:
         alerts.append({
             "type":    "AWS_COST",
-            "message": f"⚠️ AWS charges detected: ${aws['amount']:.2f} this month",
+            "message": f"⚠️ AWS charges detected: ${aws.get('daily', 0):.4f} yesterday / ${aws.get('monthly', 0):.4f} this month",
             "next_steps": (
                 "Next steps:\n"
                 "  1. Go to AWS Console → Cost Explorer\n"
