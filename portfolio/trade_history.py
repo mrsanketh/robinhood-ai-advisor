@@ -31,10 +31,28 @@ def record_trade(
     """
     Record a trade in DynamoDB.
     Call this after you execute a trade in Robinhood.
+    Deduplicates — ignores same trade within 5 minutes.
     """
     try:
         dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
         table    = dynamodb.Table("robinhood-ai-portfolio")
+
+        # Dedup check — same action+ticker+price within last 5 minutes
+        from datetime import timedelta
+        five_min_ago = (datetime.now() - timedelta(minutes=5)).strftime("%Y-%m-%d")
+        today_str    = datetime.now().strftime("%Y-%m-%d")
+
+        existing = table.scan(
+            FilterExpression="#d = :d AND contains(ticker, :key)",
+            ExpressionAttributeNames={"#d": "date"},
+            ExpressionAttributeValues={
+                ":d":   today_str,
+                ":key": f"__trade_{action}_{ticker}__"
+            }
+        )
+        if existing.get("Items"):
+            logger.info(f"Duplicate trade ignored: {action} {ticker}")
+            return True  # return True so user still sees success message
 
         today    = datetime.now().strftime("%Y-%m-%d %H:%M")
         key      = f"__trade_{action}_{ticker}_{today}__"
