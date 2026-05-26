@@ -231,14 +231,44 @@ def handle_telegram_webhook(event: dict):
             except Exception as e:
                 send(f"Could not read portfolio: {e}")
         elif text.startswith("/rotate"):
-            send("Analysing... ~3 minutes")
-            from portfolio.rotation_engine import run_rotation_analysis, format_suggestion
-            suggestions = run_rotation_analysis()
-            if not suggestions:
-                send("✅ All positions within limits.")
-            else:
-                for s in suggestions:
-                    send(format_suggestion(s))
+            send("Checking rotation candidates...")
+            try:
+                from infra.dynamo_store import get_portfolio_snapshot
+                from datetime import datetime
+                today = datetime.now().strftime("%Y-%m-%d")
+                items = get_portfolio_snapshot(today)
+                if not items:
+                    send("No data yet. Wait for 7am morning brief.")
+                else:
+                    real   = [i for i in items if not str(i.get("ticker","")).startswith("__")]
+                    total  = float(items[0].get("total_value", 0)) if items else 0
+                    rotate = [i for i in real if i.get("category") == "ROTATE"]
+                    if not rotate:
+                        send("All positions within limits. No rotation needed today.")
+                    else:
+                        from portfolio.rotation_engine import get_max_position, _find_best_replacement
+                        current_tickers = [i["ticker"] for i in real]
+                        msg = "Rotation Analysis\n\n"
+                        for r in sorted(rotate, key=lambda x: float(x["score"])):
+                            ticker  = r["ticker"]
+                            score   = float(r["score"])
+                            max_pos = get_max_position(score, total)
+                            msg += f"SELL: {ticker}\n"
+                            msg += f"  Score: {score}/10\n"
+                            msg += f"  Max allowed: ${max_pos:,.0f}\n"
+                            try:
+                                repl = _find_best_replacement(exclude_tickers=current_tickers, min_score=7.0)
+                                if repl:
+                                    msg += f"  BUY: {repl['ticker']} {repl['final_score']}/10\n"
+                                    if repl.get("fundamental_notes"):
+                                        msg += f"  {repl['fundamental_notes'][0]}\n"
+                            except Exception:
+                                pass
+                            msg += "\n"
+                        msg += 'Ask: "Why should I sell TICKER?" for full reasoning'
+                        send(msg)
+            except Exception as e:
+                send(f"Rotation check failed: {e}")
 
         elif text.startswith("/tax"):
             parts  = text.split()
