@@ -270,7 +270,10 @@ def handle_telegram_webhook(event: dict):
 
     except Exception as e:
         logger.error(f"Webhook handler error: {e}")
-        send("Sorry, something went wrong. Try again or use /help")
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            send("Gemini quota reached for today.\n\nUse commands instead:\n/portfolio\n/rotate\n/score TICKER\n/tax TICKER\n\nAI chat resumes tomorrow.")
+        else:
+            send("Sorry, something went wrong. Try again or use /help")
 
     return {"statusCode": 200, "body": "ok"}
 

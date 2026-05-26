@@ -119,6 +119,7 @@ def run_portfolio_agent(question: str) -> str:
             model="gemini-2.5-flash",
             google_api_key=config.GEMINI_API_KEY,
             temperature=0.1,
+            max_retries=0,
         )
 
         tools = [get_portfolio_summary, get_stock_score, get_tax_impact, get_position_details, get_performance_vs_market, record_executed_trade, get_trade_history]
@@ -142,6 +143,8 @@ def run_portfolio_agent(question: str) -> str:
 
     except Exception as e:
         logger.error(f"Portfolio agent error: {e}")
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "Gemini quota reached for today. Try again tomorrow or use /portfolio /rotate /score commands instead."
         return f"Sorry, I had trouble answering that. Try /portfolio for a summary."
 
 

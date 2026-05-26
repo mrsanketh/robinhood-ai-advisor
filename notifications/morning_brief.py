@@ -34,7 +34,7 @@ def build_brief() -> str:
     watch  = [r for r in results if r["category"] == "WATCH"]
     rotate = [r for r in results if r["category"] == "ROTATE"]
 
-    avg_score     = sum(r["final_score"] for r in results) / len(results)
+    avg_score     = sum(r["final_score"] for r in results) / len(results) if results else 0
     top3          = sorted(results, key=lambda x: x["final_score"], reverse=True)[:3]
     earnings_soon = [r for r in results if r.get("earnings_warning")]
 

@@ -88,6 +88,7 @@ def run_rotation_agent(question: str) -> str:
             model="gemini-2.5-flash",
             google_api_key=config.GEMINI_API_KEY,
             temperature=0.1,
+            max_retries=0,
         )
 
         tools = [get_rotation_suggestions, check_position_sizing, find_replacement_for]
@@ -113,4 +114,6 @@ def run_rotation_agent(question: str) -> str:
 
     except Exception as e:
         logger.error(f"Rotation agent error: {e}")
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "Gemini quota reached for today. Try again tomorrow or use /rotate command instead."
         return "Sorry, rotation analysis failed. Try /rotate for suggestions."

@@ -106,9 +106,10 @@ def run_screener_agent(question: str) -> str:
     """Run the screener agent with a question."""
     try:
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             google_api_key=config.GEMINI_API_KEY,
             temperature=0.1,
+            max_retries=0,
         )
 
         tools = [scan_for_opportunities, compare_two_stocks, get_available_sectors]
@@ -133,4 +134,6 @@ def run_screener_agent(question: str) -> str:
 
     except Exception as e:
         logger.error(f"Screener agent error: {e}")
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "Gemini quota reached for today. Try again tomorrow."
         return "Sorry, screener failed. Try again in a moment."
