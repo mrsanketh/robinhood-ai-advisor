@@ -77,11 +77,16 @@ def handle_trade_recording(message: str) -> str:
         else:
             return "Could not determine buy or sell. Try: \"I sold 23 shares of SHOP at $103\""
 
-        shares_match = re.search(r'(\d+\.?\d*)\s+share', message, re.IGNORECASE)
+        # shares — accept "shares", "stocks", "units", or just a number before ticker
+        shares_match = re.search(r'(\d+\.?\d*)\s+(?:share|shares|stock|stocks|unit|units)', message, re.IGNORECASE)
+        if not shares_match:
+            # try "bought/sold X TICKER" pattern
+            shares_match = re.search(r'(?:bought|sold|purchased)\s+(\d+\.?\d*)\s+[A-Z]', message, re.IGNORECASE)
         shares = float(shares_match.group(1)) if shares_match else None
 
-        skip_words = {"SOLD", "BOUGHT", "SHARES", "SHARE", "AT", "OF", "THE",
-                      "BUY", "SELL", "ALL", "MY", "PURCHASED"}
+        skip_words = {"SOLD", "BOUGHT", "SHARES", "SHARE", "STOCKS", "STOCK",
+                      "UNITS", "UNIT", "AT", "OF", "THE", "FOR", "ALSO",
+                      "BUY", "SELL", "ALL", "MY", "PURCHASED", "AVERAGE", "AVG"}
         ticker = None
         for match in re.finditer(r'\b([A-Z]{2,5})\b', message_upper):
             candidate = match.group(1)
@@ -89,8 +94,15 @@ def handle_trade_recording(message: str) -> str:
                 ticker = candidate
                 break
 
-        price_match = re.search(r'\$(\d+\.?\d*)', message)
-        price = float(price_match.group(1)) if price_match else None
+        # price — accept "$103", "103", "906.93", "906.93 average"
+        price_match = re.search(r'\$?(\d+\.?\d*)\s*(?:average|avg|each|per share)?', message)
+        # skip tiny numbers that are likely share counts
+        price = None
+        for m in re.finditer(r'\$?(\d+\.?\d+)', message):
+            val = float(m.group(1))
+            if val > 10:  # price is usually > $10
+                price = val
+                break
 
         if not all([ticker, shares, price]):
             missing = []
