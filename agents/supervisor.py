@@ -19,8 +19,11 @@ def route_question(question: str) -> str:
     """
     q = question.lower()
 
-    # Trade recording — very specific patterns
-    if any(w in q for w in ["i sold", "i bought", "i purchased", "i sell", "i buy"]):
+    # Trade recording — only when user says "I sold/bought" explicitly
+    if any(w in q for w in ["i sold", "i bought", "i purchased"]):
+        return "TRADE"
+    # "i buy/sell" only if followed by a number (actual trade, not a question)
+    if ("i sell" in q or "i buy" in q) and any(c.isdigit() for c in q):
         return "TRADE"
 
     # Rotation — sell/trim related
