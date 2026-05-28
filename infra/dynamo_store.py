@@ -192,3 +192,42 @@ def migrate_local_cost_basis(json_file: str = "cost_basis.json"):
         print(f"Migrated: {ticker} = ${avg_cost}")
 
     print(f"Migration complete — {len(data)} stocks moved to DynamoDB.")
+
+
+def save_holdings_snapshot(holdings: list, total: float):
+    """Save raw holdings to DynamoDB for next morning's brief."""
+    import json
+    from decimal import Decimal
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table    = dynamodb.Table("robinhood-ai-portfolio")
+    today    = datetime.now().strftime("%Y-%m-%d")
+
+    table.put_item(Item={
+        "date":        today,
+        "ticker":      "__holdings__",
+        "score":       Decimal("0"),
+        "category":    "HOLDINGS",
+        "total_value": Decimal(str(round(total, 2))),
+        "holdings":    json.dumps(holdings),
+    })
+
+
+def get_holdings_snapshot(date: str = None) -> tuple:
+    """Get saved holdings from DynamoDB. Returns (holdings, total)."""
+    import json
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table    = dynamodb.Table("robinhood-ai-portfolio")
+
+    try:
+        response = table.get_item(Key={"date": date, "ticker": "__holdings__"})
+        if "Item" not in response:
+            return None, 0
+        item     = response["Item"]
+        holdings = json.loads(item.get("holdings", "[]"))
+        total    = float(item.get("total_value", 0))
+        return holdings, total
+    except Exception as e:
+        return None, 0

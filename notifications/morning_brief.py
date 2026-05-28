@@ -25,8 +25,25 @@ def send_telegram(text: str):
 def build_brief() -> str:
     today = datetime.now().strftime("%B %d %Y")
 
-    holdings = robinhood_client.get_holdings()
-    total    = robinhood_client.get_total_value()
+    # Try DynamoDB cache first (saved at 11pm) — avoids Robinhood auth at 7am
+    holdings = None
+    total    = 0
+    try:
+        from infra.dynamo_store import get_holdings_snapshot
+        from datetime import timedelta
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        holdings, total = get_holdings_snapshot(yesterday)
+        if holdings:
+            logger.info(f"Using cached holdings from DynamoDB ({len(holdings)} positions)")
+    except Exception as e:
+        logger.warning(f"Could not read cached holdings: {e}")
+
+    # Fall back to live Robinhood if no cache
+    if not holdings:
+        logger.info("No cached holdings — reading live from Robinhood")
+        holdings = robinhood_client.get_holdings()
+        total    = robinhood_client.get_total_value()
+
     tickers  = [h["ticker"] for h in holdings]
     results  = score_portfolio(tickers)
 

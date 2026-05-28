@@ -314,6 +314,44 @@ def handle_telegram_webhook(event: dict):
     return {"statusCode": 200, "body": "ok"}
 
 
+
+def run_save_holdings():
+    """
+    11pm nightly run — saves holdings to DynamoDB.
+    Morning brief reads from here — no Robinhood login needed at 7am.
+    """
+    import requests
+    from data.robinhood_client  import robinhood_client
+    from infra.dynamo_store     import save_holdings_snapshot
+
+    logger.info("Running nightly holdings save...")
+
+    try:
+        holdings = robinhood_client.get_holdings()
+        total    = robinhood_client.get_total_value()
+        save_holdings_snapshot(holdings, total)
+        logger.info(f"Saved {len(holdings)} holdings to DynamoDB")
+
+        # Send confirmation
+        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id   = os.environ.get("TELEGRAM_CHAT_ID", "")
+        if bot_token and chat_id:
+            requests.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={"chat_id": chat_id, "text": f"✅ Holdings saved ({len(holdings)} positions). Morning brief ready for 7am."},
+                timeout=10
+            )
+    except Exception as e:
+        logger.error(f"Holdings save failed: {e}")
+        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id   = os.environ.get("TELEGRAM_CHAT_ID", "")
+        if bot_token and chat_id:
+            requests.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={"chat_id": chat_id, "text": f"⚠️ Nightly holdings save failed: {e}\nRun python scripts/save_robinhood_token.py to refresh token."},
+                timeout=10
+            )
+
 def handler(event, context):
     """
     Main Lambda handler.
@@ -339,6 +377,8 @@ def handler(event, context):
         run_morning_brief()
     elif task == "afternoon_scan":
         run_afternoon_scan()
+    elif task == "save_holdings":
+        run_save_holdings()
     else:
         logger.error(f"Unknown task: {task}")
 
